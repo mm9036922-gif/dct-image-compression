@@ -19,6 +19,4 @@ Live demo: https://mm9036922-gif.github.io/dct-image-compression/
 
 ## Credits
 
-Digital Signal Processing (DSP) project, Thebes Higher Institute of Engineering.
-Under the supervision of Dr. Ashraf Mahmoud Abdelrahman.
-Team: Mustafa Mahmoud Salah, Mustafa Mahmoud, Mohamed Mostafa, Abdelrahman Ashraf, Abdelhameed Sha'ban.
+By Mustafa Mahmoud Salah - Digital Signal Processing (DSP) project, Thebes Higher Institute of Engineering.
