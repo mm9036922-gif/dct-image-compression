@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Image Compression System - 2D-DCT System</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- PDF.js library for rendering PDF files locally -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        // Set worker for PDF.js
+        if (window.pdfjsLib) {
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            900: '#1e3a8a',
+                            dark: '#0f172a',
+                            card: '#1e293b',
+                            accent: '#06b6d4'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+                        mono: ['monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #0b0f19;
+            color: #f1f5f9;
+        }
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .canvas-container {
+            position: relative;
+            cursor: crosshair;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-cyan-500 selection:text-white">
+
+    <!-- Header Section -->
+    <header class="border-b border-slate-800 bg-slate-900/80 sticky top-0 z-50 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center gap-4">
+                <!-- Thebes Academy Logo (Embedded High-Res SVG Representation) -->
+                <div class="bg-white p-2 rounded-xl border border-slate-200 shadow-lg flex items-center justify-center">
+                    <svg class="w-10 h-10" viewBox="0 0 200 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Outer Blue Circle -->
+                        <circle cx="100" cy="90" r="75" stroke="#1d4ed8" stroke-width="18" fill="none"/>
+                        <!-- Temple Pillar Structure -->
+                        <path d="M 100 35 L 60 70 L 140 70 Z" fill="#1d4ed8" />
+                        <rect x="62" y="76" width="22" height="60" fill="#1d4ed8" />
+                        <rect x="89" y="76" width="22" height="60" fill="#1d4ed8" />
+                        <rect x="116" y="76" width="22" height="60" fill="#1d4ed8" />
+                        <!-- Text: Thebes Academy -->
+                        <text x="100" y="195" font-family="Georgia, serif" font-weight="bold" font-size="24" fill="#1d4ed8" text-anchor="middle">Thebes Academy</text>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold bg-gradient-to-r from-white via-slate-200 to-cyan-400 bg-clip-text text-transparent">
+                        Digital Image Compression System (2D-DCT System)
+                    </h1>
+                    <div class="space-y-0.5 text-xs text-slate-400 mt-1">
+                        <div><span class="text-slate-300 font-semibold">Project Founder & Lead: <span class="text-emerald-400 font-bold">Mustafa Mahmoud Salah</span></span></div>
+                        <div><span class="text-slate-300 font-semibold">Course Professor: <span class="text-cyan-300">Dr. Ashraf Mahmoud Abdelrahman</span></span></div>
+                        <div><span class="text-slate-300 font-semibold">Course: <span class="text-cyan-400">Digital Signal Processing (DSP)</span></span></div>
+                        <div><span class="text-slate-300 font-semibold">Academic Year: <span class="text-amber-400 font-mono">2026 - 2027</span></span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Application Grid -->
+    <main class="max-w-7xl mx-auto px-4 py-6 flex-grow w-full grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Left Sidebar: Controls & Input Sources (4 Cols) -->
+        <div class="lg:col-span-4 space-y-5">
+            
+            <!-- Input Source Selection Card -->
+            <div class="glass-panel p-5 rounded-2xl shadow-xl border border-slate-800">
+                <h2 class="text-md font-semibold text-white mb-4 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    Image Input Source
+                </h2>
+
+                <!-- Tabs for upload methods (4 Tabs) -->
+                <div class="grid grid-cols-4 gap-1 p-1 bg-slate-900/90 rounded-xl mb-4 border border-slate-800 text-xs">
+                    <button id="btnTabImage" onclick="switchInputTab('image')" class="py-2 rounded-lg font-medium bg-cyan-600 text-white shadow-md transition flex flex-col items-center justify-center">
+                        Image
+                    </button>
+                    <button id="btnTabPdf" onclick="switchInputTab('pdf')" class="py-2 rounded-lg font-medium text-slate-400 hover:text-white transition flex flex-col items-center justify-center">
+                        PDF File
+                    </button>
+                    <button id="btnTabWebcam" onclick="switchInputTab('webcam')" class="py-2 rounded-lg font-medium text-slate-400 hover:text-white transition flex flex-col items-center justify-center">
+                        Webcam
+                    </button>
+                    <button id="btnTabPreset" onclick="switchInputTab('preset')" class="py-2 rounded-lg font-medium text-slate-400 hover:text-white transition flex flex-col items-center justify-center">
+                        Preset
+                    </button>
+                </div>
+
+                <!-- Input View 1: Image Upload (Gallery Access) -->
+                <div id="viewImage" class="space-y-3">
+                    <label for="imageOnlyLoader" class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-700 hover:border-cyan-500/50 rounded-xl cursor-pointer bg-slate-900/50 hover:bg-slate-800/50 transition">
+                        <div class="flex flex-col items-center justify-center pt-5 pb-6 text-center">
+                            <svg class="w-8 h-8 text-cyan-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                            <p class="text-xs text-slate-300 font-medium">Select Image from Gallery</p>
+                            <p class="text-[10px] text-cyan-400 mt-1">Supports PNG, JPG, BMP</p>
+                        </div>
+                        <input id="imageOnlyLoader" type="file" accept="image/png, image/jpeg, image/jpg, image/bmp" class="hidden" />
+                    </label>
+                </div>
+
+                <!-- Input View 2: PDF Document Upload (Device Files Access) -->
+                <div id="viewPdf" class="hidden space-y-3">
+                    <label for="pdfOnlyLoader" class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-700 hover:border-cyan-500/50 rounded-xl cursor-pointer bg-slate-900/50 hover:bg-slate-800/50 transition">
+                        <div class="flex flex-col items-center justify-center pt-5 pb-6 text-center">
+                            <svg class="w-8 h-8 text-emerald-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            <p class="text-xs text-slate-300 font-medium">Select PDF from Device Files</p>
+                            <p class="text-[10px] text-emerald-400 mt-1">Supports Document (.pdf)</p>
+                        </div>
+                        <input id="pdfOnlyLoader" type="file" accept="application/pdf" class="hidden" />
+                    </label>
+                </div>
+
+                <!-- Input View 3: Webcam Stream -->
+                <div id="viewWebcam" class="hidden space-y-3">
+                    <div class="relative rounded-xl overflow-hidden bg-black aspect-video border border-slate-800 flex items-center justify-center">
+                        <video id="webcamVideo" autoplay playsinline class="w-full h-full object-cover hidden"></video>
+                        <div id="webcamPlaceholder" class="text-center p-4">
+                            <p class="text-xs text-slate-400">Click Start Camera for Live Feed</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button id="btnStartWebcam" onclick="startWebcam()" class="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold transition border border-slate-700">
+                            Start Camera
+                        </button>
+                        <button id="btnCaptureWebcam" onclick="captureWebcam()" disabled class="flex-1 py-2 bg-cyan-600 disabled:opacity-50 hover:bg-cyan-500 text-white rounded-xl text-xs font-semibold transition shadow-lg shadow-cyan-600/20">
+                            Capture Snapshot
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Input View: Presets -->
+                <div id="viewPreset" class="hidden space-y-3">
+                    <p class="text-xs text-slate-400">Choose Standard Generated Test Pattern:</p>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button onclick="generateLocalPreset('shapes')" class="group relative rounded-lg overflow-hidden border border-slate-700 hover:border-cyan-500 transition aspect-square bg-slate-800 flex flex-col items-center justify-center p-2 text-center">
+                            <span class="text-xs text-slate-300 font-bold">Shapes</span>
+                        </button>
+                        <button onclick="generateLocalPreset('gradient')" class="group relative rounded-lg overflow-hidden border border-slate-700 hover:border-cyan-500 transition aspect-square bg-slate-800 flex flex-col items-center justify-center p-2 text-center">
+                            <span class="text-xs text-slate-300 font-bold">Gradient</span>
+                        </button>
+                        <button onclick="generateLocalPreset('checker')" class="group relative rounded-lg overflow-hidden border border-slate-700 hover:border-cyan-500 transition aspect-square bg-slate-800 flex flex-col items-center justify-center p-2 text-center">
+                            <span class="text-xs text-slate-300 font-bold">Checkerboard</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Compression Parameters & Quantization Control Card -->
+            <div class="glass-panel p-5 rounded-2xl shadow-xl border border-slate-800 space-y-4">
+                <h2 class="text-md font-semibold text-white flex items-center gap-2">
+                    <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                    Quantization & Compression Settings
+                </h2>
+
+                <!-- Quality Factor Slider -->
+                <div>
+                    <div class="flex justify-between items-center text-xs mb-2">
+                        <span class="text-slate-300 font-medium">Quality Factor (Q):</span>
+                        <span id="qualityValue" class="font-mono text-cyan-400 font-bold text-sm bg-cyan-950/80 px-2.5 py-0.5 rounded border border-cyan-800/50">95%</span>
+                    </div>
+                    <input type="range" id="qualitySlider" min="1" max="100" value="95" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+                    <div class="flex justify-between text-[10px] text-slate-500 mt-1">
+                        <span>High Compression (Low Quality)</span>
+                        <span>Balanced</span>
+                        <span>Max Quality (Minimal Compression)</span>
+                    </div>
+                </div>
+
+                <!-- Processing Mode Toggle -->
+                <div class="pt-2 border-t border-slate-800">
+                    <label class="text-xs text-slate-300 block mb-2 font-medium">Processing Channel:</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button id="btnModeGrayscale" onclick="setChannelMode('grayscale')" class="py-2 px-3 rounded-xl border text-xs font-medium border-cyan-500 bg-cyan-500/10 text-cyan-300 transition">
+                            Grayscale (8-bit)
+                        </button>
+                        <button id="btnModeColor" onclick="setChannelMode('color')" class="py-2 px-3 rounded-xl border text-xs font-medium border-slate-700 bg-slate-900 text-slate-400 hover:text-white transition">
+                            RGB Color Channels
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Execution Button -->
+                <button onclick="processImage()" class="w-full py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold rounded-xl text-sm transition shadow-lg shadow-cyan-600/20 flex items-center justify-center gap-2">
+                    Execute 2D-DCT & Quantization
+                </button>
+            </div>
+
+            <!-- Real-Time Analytical Metrics Card -->
+            <div class="glass-panel p-5 rounded-2xl shadow-xl border border-slate-800">
+                <h2 class="text-md font-semibold text-white mb-4 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                    Analytical & DSP Metrics
+                </h2>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+                        <p class="text-[11px] text-slate-400 mb-1">Original Size (On Disk)</p>
+                        <p id="metricOrigSize" class="text-base font-mono font-bold text-slate-200">0.00 <span class="text-xs text-slate-500 font-normal">MB</span></p>
+                    </div>
+
+                    <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+                        <p class="text-[11px] text-slate-400 mb-1">Estimated Compressed Size</p>
+                        <p id="metricCompSize" class="text-base font-mono font-bold text-cyan-400">0.00 <span class="text-xs text-slate-500 font-normal">MB</span></p>
+                    </div>
+
+                    <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+                        <p class="text-[11px] text-slate-400 mb-1">Compression Ratio (CR)</p>
+                        <p id="metricCR" class="text-base font-mono font-bold text-emerald-400">1 : 1.00</p>
+                    </div>
+
+                    <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+                        <p class="text-[11px] text-slate-400 mb-1">Data Storage Savings</p>
+                        <p id="metricSavings" class="text-base font-mono font-bold text-amber-400">0 %</p>
+                    </div>
+
+                    <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+                        <p class="text-[11px] text-slate-400 mb-1">Peak Signal-to-Noise Ratio (PSNR)</p>
+                        <p id="metricPSNR" class="text-base font-mono font-bold text-blue-400">0.00 <span class="text-xs text-slate-500 font-normal">dB</span></p>
+                    </div>
+
+                    <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+                        <p class="text-[11px] text-slate-400 mb-1">Mean Squared Error (MSE)</p>
+                        <p id="metricMSE" class="text-base font-mono font-bold text-purple-400">0.00</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Visual Display Area (8 Cols) -->
+        <div class="lg:col-span-8 space-y-5">
+            
+            <!-- Dual Visual Comparison Canvas Card -->
+            <div class="glass-panel p-5 rounded-2xl shadow-xl border border-slate-800">
+                <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+                    <h2 class="text-md font-semibold text-white flex items-center gap-2">
+                        <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                        Comparative Visual Inspection
+                    </h2>
+                </div>
+
+                <!-- Dual Visual Comparison Canvas Grid Split -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Original Canvas Block -->
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-xs text-slate-300 px-1">
+                            <span class="font-medium flex items-center gap-1.5">Original Image / Document (Spatial Domain)</span>
+                            <span id="origDimText" class="font-mono text-slate-400">0x0</span>
+                        </div>
+                        <div class="canvas-container rounded-xl border border-slate-700 bg-black aspect-square flex items-center justify-center">
+                            <canvas id="canvasOriginal" class="max-w-full max-h-[350px] object-contain rounded-lg"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Reconstructed Compressed Canvas Block -->
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-xs text-slate-300 px-1">
+                            <span class="font-medium flex items-center gap-1.5 text-cyan-400">Reconstructed Image (IDCT Result)</span>
+                            <span id="compDimText" class="font-mono text-slate-400">0x0</span>
+                        </div>
+                        <div class="canvas-container rounded-xl border border-slate-700 bg-black aspect-square flex items-center justify-center">
+                            <canvas id="canvasCompressed" class="max-w-full max-h-[350px] object-contain rounded-lg"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Centered Download Button in English -->
+                <div class="mt-5 pt-4 border-t border-slate-800/80 flex justify-center items-center">
+                    <button onclick="downloadCompressedImage()" class="px-6 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold rounded-xl text-xs transition shadow-lg shadow-cyan-600/20 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        Download Compressed Image
+                    </button>
+                </div>
+            </div>
+
+            <!-- Project Team Members Card -->
+            <div class="glass-panel p-5 rounded-2xl shadow-xl border border-slate-800">
+                <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+                    <h2 class="text-md font-semibold text-white flex items-center gap-2">
+                        <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                        Project Team Members (12 Members)
+                    </h2>
+                    <span class="text-xs text-slate-400">Thebes Higher Institute of Engineering</span>
+                </div>
+
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 text-xs">
+                    <div class="bg-gradient-to-r from-cyan-950/60 to-blue-950/60 p-2.5 rounded-xl border border-cyan-800/50 flex items-center gap-2 shadow-inner">
+                        <span class="w-5 h-5 rounded-full bg-cyan-500 text-white font-bold flex items-center justify-center text-[10px]">1</span>
+                        <span class="text-cyan-300 font-bold">Mustafa Mahmoud</span>
+                    </div>
+                    <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 flex items-center gap-2">
+                        <span class="w-5 h-5 rounded-full bg-slate-800 text-slate-400 font-semibold flex items-center justify-center text-[10px]">2</span>
+                        <span class="text-slate-300">Nada Atef</span>
+                    </div>
+                    <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 flex items-center gap-2">
+                        <span class="w-5 h-5 rounded-full bg-slate-800 text-slate-400 font-semibold flex items-center justify-center text-[10px]">3</span>
+                        <span class="text-slate-300">Habiba Ali</span>
+                    </div>
+                    <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 flex items-center gap-2">
+                        <span class="w-5 h-5 rounded-full bg-slate-800 text-slate-400 font-semibold flex items-center justify-center text-[10px]">4</span>
+                        <span class="text-slate-300">Abdallah Samir</span>
+                    </div>
+                    <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 flex items-center gap-2">
+                        <span class="w-5 h-5 rounded-full bg-slate-800 text-slate-400 font-semibold flex items-center justify-center text-[10px]">5</span>
+                        <span class="text-slate-300">Abdallah Sayed</span>
+                    </div>
+                    <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 flex items-center gap-2">
+                        <span class="w-5 h-5 rounded-full bg-slate-800 text-slate-400 font-semibold flex items-center justify-center text-[10px]">6</span>
+                        <span class="text-slate-300">Mohamed Mostafa</span>
+                    </div>
+                    <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 flex items-center gap-2">
+                        <span class="w-5 h-5 rounded-full bg-slate-800 text-slate-400 font-semibold flex items-center justify-center text-[10px]">7</span>
+                        <span class="text-slate-300">Abdelrahman Ashraf</span>
+                    </div>
+                    <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 flex items-center gap-2">
+                        <span class="w-5 h-5 rounded-full bg-slate-800 text-slate-400 font-semibold flex items-center justify-center text-[10px]">8</span>
+                        <span class="text-slate-300">Ziad Mohamed</span>
+                    </div>
+                    <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 flex items-center gap-2">
+                        <span class="w-5 h-5 rounded-full bg-slate-800 text-slate-400 font-semibold flex items-center justify-center text-[10px]">9</span>
+                        <span class="text-slate-300">Abdelhameed Sha'ban</span>
+                    </div>
+                    <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 flex items-center gap-2">
+                        <span class="w-5 h-5 rounded-full bg-slate-800 text-slate-400 font-semibold flex items-center justify-center text-[10px]">10</span>
+                        <span class="text-slate-300">Salah Mohamed</span>
+                    </div>
+                    <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 flex items-center gap-2">
+                        <span class="w-5 h-5 rounded-full bg-slate-800 text-slate-400 font-semibold flex items-center justify-center text-[10px]">11</span>
+                        <span class="text-slate-300">Mohamed Saeed</span>
+                    </div>
+                    <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 flex items-center gap-2">
+                        <span class="w-5 h-5 rounded-full bg-slate-800 text-slate-400 font-semibold flex items-center justify-center text-[10px]">12</span>
+                        <span class="text-slate-300">Shaimaa Hamdy</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800 bg-slate-900/50 py-4 mt-8">
+        <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-500">
+            Developed for Digital Signal Processing Course (DSP Project 2) &copy; 2026 - All Rights Reserved.
+        </div>
+    </footer>
+
+    <!-- JavaScript Engine -->
+    <script>
+        let currentImage = null;
+        let originalImageData = null;
+        let originalFileSizeBytes = 0;
+        let processingMode = 'grayscale';
+        let webcamStream = null;
+
+        function switchInputTab(tabName) {
+            const tabs = ['image', 'pdf', 'webcam', 'preset'];
+            tabs.forEach(tab => {
+                const view = document.getElementById(`view${tab.charAt(0).toUpperCase() + tab.slice(1)}`);
+                const btn = document.getElementById(`btnTab${tab.charAt(0).toUpperCase() + tab.slice(1)}`);
+                if (tab === tabName) {
+                    view.classList.remove('hidden');
+                    btn.className = "py-2 rounded-lg font-medium bg-cyan-600 text-white shadow-md transition flex flex-col items-center justify-center";
+                } else {
+                    view.classList.add('hidden');
+                    btn.className = "py-2 rounded-lg font-medium text-slate-400 hover:text-white transition flex flex-col items-center justify-center";
+                }
+            });
+
+            if (tabName !== 'webcam') {
+                stopWebcam();
+            }
+        }
+
+        const stdQuantMatrix = [
+            16, 11, 10, 16, 24, 40, 51, 61,
+            12, 12, 14, 19, 26, 58, 60, 55,
+            14, 13, 16, 24, 40, 57, 69, 56,
+            14, 17, 22, 29, 51, 87, 80, 62,
+            18, 22, 37, 56, 68, 109, 103, 77,
+            24, 35, 55, 64, 81, 104, 113, 92,
+            49, 64, 78, 87, 103, 121, 120, 101,
+            72, 92, 95, 98, 112, 100, 103, 99
+        ];
+
+        const cosTable = Array.from({ length: 8 }, (_, x) =>
+            Array.from({ length: 8 }, (_, u) =>
+                Math.cos(((2 * x + 1) * u * Math.PI) / 16)
+            )
+        );
+
+        function alpha(u) {
+            return u === 0 ? 1 / Math.sqrt(2) : 1;
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const qualitySlider = document.getElementById('qualitySlider');
+            const qualityValue = document.getElementById('qualityValue');
+
+            qualitySlider.addEventListener('input', (e) => {
+                qualityValue.textContent = `${e.target.value}%`;
+            });
+
+            qualitySlider.addEventListener('change', () => {
+                if (currentImage) processImage();
+            });
+
+            document.getElementById('imageOnlyLoader').addEventListener('change', handleImageFileSelect);
+            document.getElementById('pdfOnlyLoader').addEventListener('change', handlePdfFileSelect);
+
+            generateLocalPreset('shapes');
+        });
+
+        function handleImageFileSelect(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            originalFileSizeBytes = file.size;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    loadImageIntoSystem(img);
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function handlePdfFileSelect(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            originalFileSizeBytes = file.size;
+
+            if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+                const reader = new FileReader();
+                reader.onload = function(ev) {
+                    const typedarray = new Uint8Array(ev.target.result);
+                    if (window.pdfjsLib) {
+                        window.pdfjsLib.getDocument(typedarray).promise.then(pdf => {
+                            pdf.getPage(1).then(page => {
+                                const viewport = page.getViewport({ scale: 1.5 });
+                                const tempCanvas = document.createElement('canvas');
+                                const ctx = tempCanvas.getContext('2d');
+                                tempCanvas.width = viewport.width;
+                                tempCanvas.height = viewport.height;
+
+                                const renderContext = {
+                                    canvasContext: ctx,
+                                    viewport: viewport
+                                };
+                                page.render(renderContext).promise.then(() => {
+                                    const img = new Image();
+                                    img.onload = () => {
+                                        loadImageIntoSystem(img);
+                                    };
+                                    img.src = tempCanvas.toDataURL('image/png');
+                                });
+                            });
+                        }).catch(err => {
+                            alert('Failed to read PDF file. Please ensure it is a valid PDF document.');
+                        });
+                    } else {
+                        alert('PDF rendering library is not available.');
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            }
+        }
+
+        async function startWebcam() {
+            try {
+                webcamStream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+                const video = document.getElementById('webcamVideo');
+                video.srcObject = webcamStream;
+                video.classList.remove('hidden');
+                document.getElementById('webcamPlaceholder').classList.add('hidden');
+                document.getElementById('btnCaptureWebcam').disabled = false;
+            } catch (err) {
+                alert('Could not access webcam. Please allow camera permissions in your browser.');
+            }
+        }
+
+        function stopWebcam() {
+            if (webcamStream) {
+                webcamStream.getTracks().forEach(track => track.stop());
+                webcamStream = null;
+            }
+            const video = document.getElementById('webcamVideo');
+            video.classList.add('hidden');
+            document.getElementById('webcamPlaceholder').classList.remove('hidden');
+            document.getElementById('btnCaptureWebcam').disabled = true;
+        }
+
+        function captureWebcam() {
+            const video = document.getElementById('webcamVideo');
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = video.videoWidth || 320;
+            tempCanvas.height = video.videoHeight || 240;
+            const ctx = tempCanvas.getContext('2d');
+            ctx.drawImage(video, 0, 0);
+
+            const img = new Image();
+            img.onload = () => {
+                loadImageIntoSystem(img);
+            };
+            img.src = tempCanvas.toDataURL('image/png');
+        }
+
+        function generateLocalPreset(type) {
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = 256;
+            tempCanvas.height = 256;
+            const ctx = tempCanvas.getContext('2d');
+
+            if (type === 'shapes') {
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(0, 0, 256, 256);
+                
+                ctx.fillStyle = '#38bdf8';
+                ctx.beginPath();
+                ctx.arc(80, 80, 50, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#f43f5e';
+                ctx.fillRect(140, 120, 90, 90);
+
+                ctx.fillStyle = '#10b981';
+                ctx.beginPath();
+                ctx.moveTo(60, 220);
+                ctx.lineTo(120, 140);
+                ctx.lineTo(30, 140);
+                ctx.closePath();
+                ctx.fill();
+            } else if (type === 'gradient') {
+                const grad = ctx.createLinearGradient(0, 0, 256, 256);
+                grad.addColorStop(0, '#000000');
+                grad.addColorStop(1, '#ffffff');
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, 256, 256);
+            } else if (type === 'checker') {
+                const size = 32;
+                for (let i = 0; i < 256; i += size) {
+                    for (let j = 0; j < 256; j += size) {
+                        ctx.fillStyle = ((i / size + j / size) % 2 === 0) ? '#ffffff' : '#1e293b';
+                        ctx.fillRect(i, j, size, size);
+                    }
+                }
+            }
+
+            const img = new Image();
+            img.onload = () => {
+                loadImageIntoSystem(img);
+            };
+            img.src = tempCanvas.toDataURL('image/png');
+        }
+
+        function loadImageIntoSystem(img) {
+            currentImage = img;
+            
+            const maxDimension = 512;
+            let width = img.width;
+            let height = img.height;
+
+            if (width > maxDimension || height > maxDimension) {
+                if (width > height) {
+                    height = Math.round((height * maxDimension) / width);
+                    width = maxDimension;
+                } else {
+                    width = Math.round((width * maxDimension) / height);
+                    height = maxDimension;
+                }
+            }
+
+            width = Math.floor(width / 8) * 8;
+            height = Math.floor(height / 8) * 8;
+
+            const canvasOrig = document.getElementById('canvasOriginal');
+            const canvasComp = document.getElementById('canvasCompressed');
+
+            canvasOrig.width = width;
+            canvasOrig.height = height;
+            canvasComp.width = width;
+            canvasComp.height = height;
+
+            const ctxOrig = canvasOrig.getContext('2d');
+            ctxOrig.drawImage(img, 0, 0, width, height);
+            originalImageData = ctxOrig.getImageData(0, 0, width, height);
+
+            document.getElementById('origDimText').textContent = `${width}x${height} px`;
+            document.getElementById('compDimText').textContent = `${width}x${height} px`;
+
+            processImage();
+        }
+
+        function setChannelMode(mode) {
+            processingMode = mode;
+            const btnGray = document.getElementById('btnModeGrayscale');
+            const btnColor = document.getElementById('btnModeColor');
+
+            if (mode === 'grayscale') {
+                btnGray.className = "py-2 px-3 rounded-xl border text-xs font-medium border-cyan-500 bg-cyan-500/10 text-cyan-300 transition";
+                btnColor.className = "py-2 px-3 rounded-xl border text-xs font-medium border-slate-700 bg-slate-900 text-slate-400 hover:text-white transition";
+            } else {
+                btnColor.className = "py-2 px-3 rounded-xl border text-xs font-medium border-cyan-500 bg-cyan-500/10 text-cyan-300 transition";
+                btnGray.className = "py-2 px-3 rounded-xl border text-xs font-medium border-slate-700 bg-slate-900 text-slate-400 hover:text-white transition";
+            }
+
+            if (currentImage) processImage();
+        }
+
+        function getScaledQuantMatrix(quality) {
+            let scale;
+            if (quality < 50) {
+                scale = 50 / quality;
+            } else {
+                scale = (100 - quality) / 50;
+            }
+
+            const scaled = new Float32Array(64);
+            for (let i = 0; i < 64; i++) {
+                let val = Math.floor(stdQuantMatrix[i] * scale);
+                if (val < 1) val = 1;
+                if (val > 255) val = 255;
+                scaled[i] = val;
+            }
+            return scaled;
+        }
+
+        function dct2D(block) {
+            const DCT = new Float32Array(64);
+            for (let u = 0; u < 8; u++) {
+                for (let v = 0; v < 8; v++) {
+                    let sum = 0;
+                    for (let x = 0; x < 8; x++) {
+                        for (let y = 0; y < 8; y++) {
+                            sum += block[x * 8 + y] * cosTable[x][u] * cosTable[y][v];
+                        }
+                    }
+                    const coeff = 0.25 * alpha(u) * alpha(v) * sum;
+                    DCT[u * 8 + v] = coeff;
+                }
+            }
+            return DCT;
+        }
+
+        function idct2D(quantDCT) {
+            const block = new Float32Array(64);
+            for (let x = 0; x < 8; x++) {
+                for (let y = 0; y < 8; y++) {
+                    let sum = 0;
+                    for (let u = 0; u < 8; u++) {
+                        for (let v = 0; v < 8; v++) {
+                            sum += alpha(u) * alpha(v) * quantDCT[u * 8 + v] * cosTable[x][u] * cosTable[y][v];
+                        }
+                    }
+                    let pixel = Math.round(0.25 * sum + 128);
+                    if (pixel < 0) pixel = 0;
+                    if (pixel > 255) pixel = 255;
+                    block[x * 8 + y] = pixel;
+                }
+            }
+            return block;
+        }
+
+        function processImage() {
+            if (!originalImageData) return;
+
+            const width = originalImageData.width;
+            const height = originalImageData.height;
+            const quality = parseInt(document.getElementById('qualitySlider').value, 10);
+            const quantMatrix = getScaledQuantMatrix(quality);
+
+            const canvasComp = document.getElementById('canvasCompressed');
+            const ctxComp = canvasComp.getContext('2d');
+            const outputImageData = ctxComp.createImageData(width, height);
+
+            const origPixels = originalImageData.data;
+            const compPixels = outputImageData.data;
+
+            let totalNonZeroCoeffs = 0;
+            let totalCoeffs = width * height;
+            let mseAccumulator = 0;
+
+            const blockPixelData = new Float32Array(64);
+
+            for (let bx = 0; bx < width; bx += 8) {
+                for (let by = 0; by < height; by += 8) {
+                    
+                    if (processingMode === 'grayscale') {
+                        for (let x = 0; x < 8; x++) {
+                            for (let y = 0; y < 8; y++) {
+                                const pxIndex = ((by + y) * width + (bx + x)) * 4;
+                                const r = origPixels[pxIndex];
+                                const g = origPixels[pxIndex + 1];
+                                const b = origPixels[pxIndex + 2];
+                                const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+                                blockPixelData[x * 8 + y] = gray - 128;
+                            }
+                        }
+
+                        const dctCoeffs = dct2D(blockPixelData);
+
+                        const quantizedDCT = new Float32Array(64);
+                        for (let i = 0; i < 64; i++) {
+                            const qVal = Math.round(dctCoeffs[i] / quantMatrix[i]);
+                            quantizedDCT[i] = qVal;
+                            if (qVal !== 0) totalNonZeroCoeffs++;
+                        }
+
+                        const dequantDCT = new Float32Array(64);
+                        for (let i = 0; i < 64; i++) {
+                            dequantDCT[i] = quantizedDCT[i] * quantMatrix[i];
+                        }
+
+                        const reconstructedBlock = idct2D(dequantDCT);
+
+                        for (let x = 0; x < 8; x++) {
+                            for (let y = 0; y < 8; y++) {
+                                const pxIndex = ((by + y) * width + (bx + x)) * 4;
+                                const origGray = blockPixelData[x * 8 + y] + 128;
+                                const recVal = reconstructedBlock[x * 8 + y];
+
+                                compPixels[pxIndex] = recVal;
+                                compPixels[pxIndex + 1] = recVal;
+                                compPixels[pxIndex + 2] = recVal;
+                                compPixels[pxIndex + 3] = 255;
+
+                                const err = origGray - recVal;
+                                mseAccumulator += err * err;
+                            }
+                        }
+
+                    } else {
+                        for (let c = 0; c < 3; c++) {
+                            for (let x = 0; x < 8; x++) {
+                                for (let y = 0; y < 8; y++) {
+                                    const pxIndex = ((by + y) * width + (bx + x)) * 4;
+                                    blockPixelData[x * 8 + y] = origPixels[pxIndex + c] - 128;
+                                }
+                            }
+
+                            const dctCoeffs = dct2D(blockPixelData);
+
+                            const quantizedDCT = new Float32Array(64);
+                            for (let i = 0; i < 64; i++) {
+                                const qVal = Math.round(dctCoeffs[i] / quantMatrix[i]);
+                                quantizedDCT[i] = qVal;
+                                if (qVal !== 0) totalNonZeroCoeffs++;
+                            }
+
+                            const dequantDCT = new Float32Array(64);
+                            for (let i = 0; i < 64; i++) {
+                                dequantDCT[i] = quantizedDCT[i] * quantMatrix[i];
+                            }
+
+                            const reconstructedBlock = idct2D(dequantDCT);
+
+                            for (let x = 0; x < 8; x++) {
+                                for (let y = 0; y < 8; y++) {
+                                    const pxIndex = ((by + y) * width + (bx + x)) * 4;
+                                    const recVal = reconstructedBlock[x * 8 + y];
+                                    compPixels[pxIndex + c] = recVal;
+                                    if (c === 0) {
+                                        const err = origPixels[pxIndex] - recVal;
+                                        mseAccumulator += err * err;
+                                    }
+                                }
+                            }
+                        }
+                        for (let x = 0; x < 8; x++) {
+                            for (let y = 0; y < 8; y++) {
+                                const pxIndex = ((by + y) * width + (bx + x)) * 4;
+                                compPixels[pxIndex + 3] = 255;
+                            }
+                        }
+                    }
+
+                }
+            }
+
+            ctxComp.putImageData(outputImageData, 0, 0);
+            calculateMetrics(width, height, mseAccumulator, totalNonZeroCoeffs, totalCoeffs);
+        }
+
+        function calculateMetrics(width, height, mseAccum, nonZeroCoeffs, totalCoeffs) {
+            const rawBytes = width * height;
+            
+            const estimatedBits = (nonZeroCoeffs * 6) + ((totalCoeffs - nonZeroCoeffs) * 0.5);
+            const compressedBytes = Math.max(Math.ceil(estimatedBits / 8), 128);
+
+            const compressionRatioVal = rawBytes / compressedBytes;
+
+            let origDisplay = "";
+            let compDisplay = "";
+
+            if (originalFileSizeBytes > 0) {
+                const fileMB = originalFileSizeBytes / (1024 * 1024);
+                if (fileMB >= 1) {
+                    origDisplay = `${fileMB.toFixed(2)} MB`;
+                    compDisplay = `${(fileMB / compressionRatioVal).toFixed(2)} MB`;
+                } else {
+                    const fileKB = originalFileSizeBytes / 1024;
+                    origDisplay = `${fileKB.toFixed(2)} KB`;
+                    compDisplay = `${(fileKB / compressionRatioVal).toFixed(2)} KB`;
+                }
+            } else {
+                const rawKB = rawBytes / 1024;
+                origDisplay = `${rawKB.toFixed(2)} KB`;
+                compDisplay = `${(compressedBytes / 1024).toFixed(2)} KB`;
+            }
+            
+            const compressionRatio = compressionRatioVal.toFixed(2);
+            const savingsPercent = (((compressionRatioVal - 1) / compressionRatioVal) * 100).toFixed(1);
+
+            const mse = (mseAccum / (width * height)).toFixed(2);
+            let psnr = "∞";
+            if (mse > 0) {
+                const psnrVal = 10 * Math.log10((255 * 255) / mse);
+                psnr = psnrVal.toFixed(2);
+            }
+
+            document.getElementById('metricOrigSize').textContent = origDisplay;
+            document.getElementById('metricCompSize').textContent = compDisplay;
+            document.getElementById('metricCR').textContent = `1 : ${compressionRatio}`;
+            document.getElementById('metricSavings').textContent = `${savingsPercent} %`;
+            document.getElementById('metricMSE').textContent = mse;
+            document.getElementById('metricPSNR').textContent = `${psnr} dB`;
+        }
+
+        function downloadCompressedImage() {
+            const canvasComp = document.getElementById('canvasCompressed');
+            const quality = document.getElementById('qualitySlider').value;
+            const link = document.createElement('a');
+            link.download = `DCT_Compressed_Q${quality}.png`;
+            link.href = canvasComp.toDataURL('image/png');
+            link.click();
+        }
+    </script>
+</body>
+</html>
